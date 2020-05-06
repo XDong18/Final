@@ -1,18 +1,40 @@
 import cv2
 import sys
+import json
+import numpy as np
 
-(major_ver, minor_ver, subminor_ver) = (cv2.__version__).split('.')
+class p_track(object):
+    def __init__(self, location, idx):
+        self.ini_location = location.astype(np.int32)
+        self.idx = idx
+        self.bbox = None
+    
+    def tracker_init(self, frame):
+        self.tracker = cv2.TrackerGOTURN_create()
+        bbox = (self.ini_location[0] - 8, self.ini_location[1] - 8, \
+                self.ini_location[0] + 8, self.ini_location[1] + 8)
+        # print(bbox)
 
-if __name__ == '__main__' :
+        self.bbox = bbox
+        self.tracker.init(frame, bbox)
+    
+    def bbox_update(self, frame):
+        ok, bbox = self.tracker.update(frame)
+        self.bbox = bbox
+        return ok, [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2]
 
-    # Set up tracker.
-    # Instead of MIL, you can also use
-    tracker = cv2.TrackerMedianFlow_create()
+def main():
+    with open('./pts.json') as f:
+        pts_list = json.load(f)
 
-    # Read video
+    all_pts_list = []
+    all_pts_list.append(pts_list)
+
+    p_track_list = []
+    for i, pts in enumerate(pts_list):
+        p_track_list.append(p_track(np.array(pts), i))
+
     video = cv2.VideoCapture("video.MOV")
-
-    # Exit if video not opened.
     if not video.isOpened():
         print("Could not open video")
         sys.exit()
@@ -23,49 +45,40 @@ if __name__ == '__main__' :
         print('Cannot read video file')
         sys.exit()
     
-    # Define an initial bounding box
-    # bbox = (287, 23, 86, 320)
-
-    # Uncomment the line below to select a different bounding box
-    bbox = cv2.selectROI(frame, False)
-
-    # Initialize tracker with first frame and bounding box
-    ok = tracker.init(frame, bbox)
-
+    for p in p_track_list:
+        p.tracker_init(frame)
+    
     while True:
         # Read a new frame
         ok, frame = video.read()
         if not ok:
             break
-        
-        # Start timer
-        timer = cv2.getTickCount()
 
         # Update tracker
-        ok, bbox = tracker.update(frame)
-
-        # Calculate Frames per second (FPS)
-        fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer);
-
-        # Draw bounding box
-        if ok:
+        temp_pts_list = []
+        for p in p_track_list:
+            ok, new_pts = p.bbox_update(frame)
+            temp_pts_list.append(new_pts)
+            bbox = p.bbox
+            if ok:
             # Tracking success
-            p1 = (int(bbox[0]), int(bbox[1]))
-            p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
-            cv2.rectangle(frame, p1, p2, (255,0,0), 2, 1)
-        else :
+                p1 = (int(bbox[0]), int(bbox[1]))
+                p2 = (int(bbox[2]), int(bbox[3]))
+                cv2.rectangle(frame, p1, p2, (255,0,0), 2, 1)
+            else :
             # Tracking failure
-            cv2.putText(frame, "Tracking failure detected", (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
-
-        # Display tracker type on frame
-        cv2.putText(frame, tracker_type + " Tracker", (100,20), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50),2);
-    
-        # Display FPS on frame
-        cv2.putText(frame, "FPS : " + str(int(fps)), (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2);
-
+                cv2.putText(frame, "Tracking failure detected", (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
+        
+        all_pts_list.append(temp_pts_list)
         # Display result
         cv2.imshow("Tracking", frame)
 
         # Exit if ESC pressed
         k = cv2.waitKey(1) & 0xff
         if k == 27 : break
+    
+    with open('./all_pts.json', 'w') as f:
+        json.dump(all_pts_list, f)
+
+if __name__ == "__main__":
+    main()
