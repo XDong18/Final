@@ -1,3 +1,6 @@
 *.MOV
 .history/
 .vscode/
+*.avi
+__pycache__/
+*.zip

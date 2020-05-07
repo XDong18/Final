@@ -10,9 +10,9 @@ class p_track(object):
         self.bbox = None
     
     def tracker_init(self, frame):
-        self.tracker = cv2.TrackerGOTURN_create()
-        bbox = (self.ini_location[0] - 8, self.ini_location[1] - 8, \
-                self.ini_location[0] + 8, self.ini_location[1] + 8)
+        self.tracker = cv2.TrackerMedianFlow_create()
+        bbox = (self.ini_location[0] - 4, self.ini_location[1] - 4, \
+                8, 8)
         # print(bbox)
 
         self.bbox = bbox
@@ -21,10 +21,10 @@ class p_track(object):
     def bbox_update(self, frame):
         ok, bbox = self.tracker.update(frame)
         self.bbox = bbox
-        return ok, [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2]
+        return ok, [bbox[0] + bbox[2] / 2, bbox[1] + bbox[3] / 2]
 
 def main():
-    with open('./pts.json') as f:
+    with open('./pts/pts2.json') as f:
         pts_list = json.load(f)
 
     all_pts_list = []
@@ -34,7 +34,7 @@ def main():
     for i, pts in enumerate(pts_list):
         p_track_list.append(p_track(np.array(pts), i))
 
-    video = cv2.VideoCapture("video.MOV")
+    video = cv2.VideoCapture("./video/video3.MOV")
     if not video.isOpened():
         print("Could not open video")
         sys.exit()
@@ -63,7 +63,7 @@ def main():
             if ok:
             # Tracking success
                 p1 = (int(bbox[0]), int(bbox[1]))
-                p2 = (int(bbox[2]), int(bbox[3]))
+                p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
                 cv2.rectangle(frame, p1, p2, (255,0,0), 2, 1)
             else :
             # Tracking failure
@@ -77,7 +77,7 @@ def main():
         k = cv2.waitKey(1) & 0xff
         if k == 27 : break
     
-    with open('./all_pts.json', 'w') as f:
+    with open('./pts/all_pts3.json', 'w') as f:
         json.dump(all_pts_list, f)
 
 if __name__ == "__main__":
